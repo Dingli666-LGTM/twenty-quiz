@@ -3,12 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>二十大报告知识问答</title>
+    <title>综合知识刷题</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div class="quiz-container">
-        <h1>二十大报告知识问答</h1>
+    <div id="quiz-selection-container">
+        <h1>选择题库</h1>
+        <div id="quiz-list">
+            <!-- 题库按钮将由 JavaScript 动态生成 -->
+        </div>
+    </div>
+
+    <div class="quiz-container" style="display: none;">
+        <h1 id="quiz-title"></h1>
+        <button id="back-to-selection-btn" class="btn btn-secondary">返回题库列表</button>
         <div id="question-container">
             <p id="question-text"></p>
         </div>
@@ -19,18 +27,19 @@
         <div class="navigation-buttons">
             <button id="submit-btn" class="btn">提交答案</button>
             <button id="next-btn" class="btn" style="display: none;">下一题</button>
-            <button id="finish-btn" class="btn" style="display: none;">完成测验</button>
+            <button id="finish-btn" class="btn">完成测验</button>
         </div>
         <div id="progress-container">
             <p id="progress-text"></p>
         </div>
          <div id="results-container" style="display: none;">
-            <h2>答题结束！</h2>
+            <h2 id="results-title">答题结束！</h2>
             <p id="score-text"></p>
             <div id="results-summary">
                 <!-- 题目回顾列表将由 JavaScript 动态生成 -->
             </div>
-            <button id="restart-btn" class="btn">重新开始</button>
+            <button id="restart-btn" class="btn">重新答题</button>
+            <button id="back-to-selection-from-results-btn" class="btn btn-secondary">返回题库列表</button>
         </div>
     </div>
 
