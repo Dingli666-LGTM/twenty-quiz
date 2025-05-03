@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>二十大报告知识问答</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="quiz-container">
+        <h1>二十大报告知识问答</h1>
+        <div id="question-container">
+            <p id="question-text"></p>
+        </div>
+        <div id="options-container">
+            <!-- 选项将由 JavaScript 动态生成 -->
+        </div>
+        <div id="feedback" class="feedback"></div>
+        <div class="navigation-buttons">
+            <button id="submit-btn" class="btn">提交答案</button>
+            <button id="next-btn" class="btn" style="display: none;">下一题</button>
+        </div>
+        <div id="progress-container">
+            <p id="progress-text"></p>
+        </div>
+         <div id="results-container" style="display: none;">
+            <h2>答题结束！</h2>
+            <p id="score-text"></p>
+            <button id="restart-btn" class="btn">重新开始</button>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
