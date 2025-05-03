@@ -189,3 +189,52 @@ h1 {
     font-size: 1.2em;
     margin-bottom: 20px;
 }
+
+#results-summary ul {
+    list-style: none;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px; /* Add gap between items */
+    justify-content: center; /* Center items if they wrap */
+    margin-top: 15px; /* Add space above the list */
+}
+
+#results-summary ul li {
+    display: inline-block; /* Or flex item if using flexbox */
+    padding: 5px 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    min-width: 30px; /* Ensure minimum width */
+    text-align: center;
+    font-weight: bold;
+    cursor: default; /* Default cursor */
+}
+
+/* Corrected Selectors */
+#results-summary ul li.answered.incorrect {
+    color: red;
+    border-color: red;
+    cursor: pointer; /* Make clickable */
+}
+
+#results-summary ul li.answered.correct {
+    color: green;
+    border-color: green;
+}
+
+#results-summary ul li.unanswered {
+    color: grey;
+    border-color: grey;
+    cursor: pointer; /* Make clickable */
+}
+
+/* Hover effects for clickable items */
+#results-summary ul li.answered.incorrect:hover,
+#results-summary ul li.unanswered:hover {
+    background-color: #eee;
+}
+
+#question-modal {
+    /* ... existing modal styles ... */
+}

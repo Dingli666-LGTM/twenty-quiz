@@ -128,17 +128,18 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // Ensure results are hidden, question parts are visible
-        // No need to hide/show quizContainer here, handled by startQuiz/showResults etc.
-        resultsContainer.style.display = 'none';
+        // Show quiz parts, hide results
         questionContainer.style.display = 'block';
         optionsContainer.style.display = 'flex';
         feedbackElement.style.display = 'block';
         progressContainer.style.display = 'block';
-        navigationButtons.style.display = 'block';
-        backToSelectionBtn.style.display = 'inline-block'; // Make sure back button is visible
+        resultsContainer.style.display = 'none'; // Explicitly hide results
+        navigationButtons.style.display = 'block'; // Show button container
+        backToSelectionBtn.style.display = 'inline-block'; // Show in-quiz back
+        backToSelectionFromResultsBtn.style.display = 'none'; // Hide results back
+        restartBtn.style.display = 'none'; // Hide restart
 
-        removeBackToResultsButton(); // Remove results-related back button if present
+        removeBackToResultsButton(); // Clean up detail view button
 
         const currentQuestion = questions[currentQuestionIndex];
         questionTextElement.innerText = `${currentQuestionIndex + 1}. ${currentQuestion.question}`;
@@ -156,9 +157,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const input = document.createElement('input');
             input.id = optionId;
-            input.name = `options-${currentQuestionIndex}`; // Unique name per question
+            input.name = `options-${currentQuestionIndex}`;
             input.value = key;
-            // Make sure radio/checkbox is not disabled from previous detail view
             input.disabled = false;
 
             if (currentQuestion.type === 'multiple') {
@@ -176,8 +176,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         updateProgress();
-        // Control navigation buttons visibility
-        submitBtn.disabled = false; // Re-enable submit button
+        submitBtn.disabled = false;
         submitBtn.style.display = 'inline-block';
         nextBtn.style.display = 'none';
         finishBtn.style.display = 'inline-block';
@@ -225,7 +224,7 @@ document.addEventListener('DOMContentLoaded', () => {
         submitBtn.disabled = true;
         submitBtn.style.display = 'none';
         nextBtn.style.display = 'inline-block';
-        // Keep finishBtn visible until explicitly hidden in showResults
+        finishBtn.style.display = 'inline-block'; // Keep finish button visible
     }
 
     // --- Highlight Correct/Incorrect Answers --- (No changes needed)
@@ -233,22 +232,22 @@ document.addEventListener('DOMContentLoaded', () => {
         const correctKeys = type === 'multiple' ? correctAnswer.split('') : [correctAnswer];
         const userKeys = (type === 'multiple' && userAnswer) ? userAnswer.split('') : (userAnswer ? [userAnswer] : []);
 
-        // Highlight correct answers
         correctKeys.forEach(key => {
             const correctInput = document.getElementById(`option-${key}`);
             if (correctInput && correctInput.parentElement) {
-                correctInput.parentElement.classList.add('correct-answer-highlight');
+                correctInput.parentElement.style.backgroundColor = '#d4edda'; // Light green for correct option
+                correctInput.parentElement.style.borderColor = '#c3e6cb';
+                correctInput.parentElement.style.fontWeight = 'bold';
             }
         });
 
-        // If incorrect, also highlight the user's wrong choice(s)
         if (userAnswer !== correctAnswer) {
              userKeys.forEach(key => {
-                // Avoid double-highlighting if a user choice was part of the correct answer (in multiple choice)
                 if (!correctKeys.includes(key)) {
                     const userInput = document.getElementById(`option-${key}`);
                     if (userInput && userInput.parentElement) {
-                        userInput.parentElement.classList.add('user-answer-incorrect');
+                        userInput.parentElement.style.backgroundColor = '#f8d7da'; // Light red for incorrect user choice
+                        userInput.parentElement.style.borderColor = '#f5c6cb';
                     }
                 }
             });
@@ -262,85 +261,101 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Show Results --- Displays the final score and review list for the current quiz
     function showResults() {
-        // Hide question parts & nav buttons, show results container
+        // Hide Question-specific parts
         questionContainer.style.display = 'none';
         optionsContainer.style.display = 'none';
         feedbackElement.style.display = 'none';
         progressContainer.style.display = 'none';
-        navigationButtons.style.display = 'none'; // Hide submit/next/finish
-        backToSelectionBtn.style.display = 'none'; // Hide the in-quiz back button
-        resultsContainer.style.display = 'block'; // Show results area
+        navigationButtons.style.display = 'none'; // Hide submit/next/finish button container
+        backToSelectionBtn.style.display = 'none'; // Hide in-quiz back button
 
-        removeBackToResultsButton(); // Clean up question detail back button
+        // Show Results container
+        resultsContainer.style.display = 'block';
 
-        resultsTitleElement.innerText = `"${currentQuizName}" 答题结束！`; // Update results title
-
+        // Calculate score
+        score = 0; // Recalculate score based on stored answers
         let answeredCount = 0;
-        questions.forEach(q => {
-            if (q.hasOwnProperty('isCorrect')) {
+        for (let i = 0; i < questions.length; i++) {
+            if (questions[i].userAnswer) {
                 answeredCount++;
-            }
-        });
-
-        const percentage = answeredCount > 0 ? ((score / answeredCount) * 100).toFixed(1) : 0;
-        scoreTextElement.innerText = `你的得分: ${score} / ${answeredCount} (答对 ${percentage}%) - 共 ${questions.length} 题`;
-
-        // Build the results summary list (No changes needed in logic here)
-        resultsSummaryElement.innerHTML = '';
-        const summaryTitle = document.createElement('h3');
-        summaryTitle.textContent = '题目回顾 (点击错误题号查看详情):';
-        resultsSummaryElement.appendChild(summaryTitle);
-        const resultsList = document.createElement('ul');
-        resultsList.className = 'results-list';
-        questions.forEach((question, index) => {
-            const listItem = document.createElement('li');
-            const button = document.createElement('button');
-            button.textContent = index + 1;
-            button.classList.add('result-item');
-
-            if (question.hasOwnProperty('isCorrect')) {
-                button.classList.add(question.isCorrect ? 'correct' : 'incorrect');
-                button.setAttribute('aria-label', `题目 ${index + 1}: ${question.isCorrect ? '正确' : '错误'}`);
-                 if (!question.isCorrect) {
-                    button.addEventListener('click', () => displayQuestionDetails(index));
-                    button.title = '点击查看详情';
+                if (questions[i].isCorrect) {
+                    score++;
                 }
-            } else {
-                button.classList.add('unanswered');
-                button.setAttribute('aria-label', `题目 ${index + 1}: 未作答`);
-                button.disabled = true;
-                 button.title = '未作答';
             }
-            listItem.appendChild(button);
-            resultsList.appendChild(listItem);
+        }
+
+        // Display score and title
+        const percentage = answeredCount === 0 ? 0 : ((score / answeredCount) * 100).toFixed(1);
+        resultsTitleElement.innerText = `"${currentQuizName}" 答题结束！`;
+        scoreTextElement.textContent = `你的得分: ${score} / ${answeredCount} (答对 ${percentage}%) - 共 ${questions.length} 题`;
+
+        // Generate review list (Restored)
+        let reviewListHtml = '<h3>题目回顾 (点击错误或未答题号查看详情):</h3><ul>';
+        for (let i = 0; i < questions.length; i++) {
+            const question = questions[i];
+            if (question.userAnswer) {
+                reviewListHtml += `<li data-index="${i}" class="answered`;
+                if (!question.isCorrect) {
+                    reviewListHtml += ' incorrect" title="点击查看详情 (错误)"'; // Add tooltip
+                } else {
+                    reviewListHtml += ' correct" title="回答正确"'; // Add tooltip
+                }
+                reviewListHtml += `>${i + 1}</li>`;
+            } else {
+                reviewListHtml += `<li data-index="${i}" class="unanswered" title="点击查看详情 (未答)">${i + 1}</li>`; // Mark unanswered & add tooltip
+            }
+        }
+        reviewListHtml += '</ul>';
+        resultsSummaryElement.innerHTML = reviewListHtml;
+
+        // Add click listeners (Only for incorrect/unanswered)
+        resultsSummaryElement.querySelectorAll('li.incorrect, li.unanswered').forEach(item => {
+            item.style.cursor = 'pointer'; // Ensure cursor indicates clickability
+            item.addEventListener('click', () => {
+                const questionIndex = parseInt(item.getAttribute('data-index'));
+                if (questions[questionIndex]) {
+                    showQuestionDetails(questionIndex);
+                }
+            });
         });
-        resultsSummaryElement.appendChild(resultsList);
-        // Make sure the results-specific back button is visible
+         // Style correct answers (no click handler needed here)
+        resultsSummaryElement.querySelectorAll('li.correct').forEach(item => {
+             item.style.cursor = 'default'; // Indicate no action
+        });
+
+        // Show Results buttons
         backToSelectionFromResultsBtn.style.display = 'inline-block';
         restartBtn.style.display = 'inline-block';
+
+        removeBackToResultsButton(); // Clean up detail view button just in case
     }
 
     // --- Display Question Details --- Shows details for a specific question
-    function displayQuestionDetails(index) {
-        // Hide results, show specific question parts (no progress, no regular nav buttons)
+    function showQuestionDetails(index) {
+        // Hide results and progress
         resultsContainer.style.display = 'none';
+        progressContainer.style.display = 'none';
+        backToSelectionFromResultsBtn.style.display = 'none'; // Hide results buttons
+        restartBtn.style.display = 'none';
+
+        // Show question parts
         questionContainer.style.display = 'block';
         optionsContainer.style.display = 'flex';
         feedbackElement.style.display = 'block';
-        progressContainer.style.display = 'none';
-        navigationButtons.style.display = 'block'; // Show div for back-to-results button
-        backToSelectionBtn.style.display = 'none'; // Hide regular back button
+        navigationButtons.style.display = 'block'; // Show container for the back button
+        backToSelectionBtn.style.display = 'none'; // Ensure in-quiz back is hidden
 
         const question = questions[index];
         questionTextElement.innerText = `${index + 1}. ${question.question}`;
-        optionsContainer.innerHTML = '';
-        feedbackElement.innerHTML = `你的答案: ${question.userAnswer || '未作答'} | 正确答案: ${question.answer}`;
-        feedbackElement.className = 'feedback incorrect';
+        optionsContainer.innerHTML = ''; // Clear previous options
+        feedbackElement.innerHTML = ``; // Clear previous feedback initially
+        feedbackElement.className = 'feedback'; // Reset feedback class
 
+        // Display options (disabled)
         const optionKeys = Object.keys(question.options);
         optionKeys.forEach(key => {
              const option = question.options[key];
-            const optionId = `option-${key}-detail`;
+            const optionId = `option-${key}-detail`; // Use unique ID for detail view inputs
             const label = document.createElement('label');
             label.htmlFor = optionId;
             label.classList.add('option-label');
@@ -349,14 +364,20 @@ document.addEventListener('DOMContentLoaded', () => {
             input.id = optionId;
             input.name = `options-detail-${index}`;
             input.value = key;
-            input.disabled = true; // Disable in detail view
+            input.disabled = true; // Disable interaction in detail view
 
             if (question.type === 'multiple') {
                 input.type = 'checkbox';
-                if (question.userAnswer && question.userAnswer.includes(key)) input.checked = true;
+                // Check if this option was part of the user's submitted answer
+                if (question.userAnswer && question.userAnswer.includes(key)) {
+                    input.checked = true;
+                }
             } else {
                 input.type = 'radio';
-                if (question.userAnswer === key) input.checked = true;
+                // Check if this option was the user's submitted answer
+                if (question.userAnswer === key) {
+                    input.checked = true;
+                }
             }
 
             const span = document.createElement('span');
@@ -366,17 +387,32 @@ document.addEventListener('DOMContentLoaded', () => {
             label.appendChild(span);
             optionsContainer.appendChild(label);
 
-            // Highlighting logic remains the same
-            if (question.userAnswer === key && !question.isCorrect) {
-                 label.classList.add('user-answer-incorrect');
-            }
+            // Apply highlighting based on correctness
             const correctKeys = question.type === 'multiple' ? question.answer.split('') : [question.answer];
+            const userAnswerKey = question.userAnswer;
+            const isCorrect = question.isCorrect;
+
+            // Highlight correct answer(s)
             if (correctKeys.includes(key)) {
-                 label.classList.add('correct-answer-highlight');
+                label.style.backgroundColor = '#d4edda'; // Light green for correct option
+                label.style.borderColor = '#c3e6cb';
+                label.style.fontWeight = 'bold';
+            }
+
+            // Highlight user's incorrect choice(s)
+            if (!isCorrect) {
+                 if ( (question.type === 'multiple' && userAnswerKey && userAnswerKey.includes(key) && !correctKeys.includes(key)) || (question.type !== 'multiple' && userAnswerKey === key) ) {
+                    label.style.backgroundColor = '#f8d7da'; // Light red for incorrect user choice
+                    label.style.borderColor = '#f5c6cb';
+                 }
             }
         });
 
-        // Hide standard quiz navigation buttons
+        // Display feedback about user's answer vs correct answer
+        feedbackElement.innerHTML = `你的答案: ${question.userAnswer || '未作答'} | 正确答案: ${question.answer}`;
+        feedbackElement.className = question.isCorrect ? 'feedback correct' : 'feedback incorrect';
+
+        // Hide standard quiz navigation buttons within the container
         submitBtn.style.display = 'none';
         nextBtn.style.display = 'none';
         finishBtn.style.display = 'none';
@@ -442,6 +478,13 @@ document.addEventListener('DOMContentLoaded', () => {
     submitBtn.addEventListener('click', submitAnswer);
     nextBtn.addEventListener('click', () => {
         currentQuestionIndex++;
+        // Reset option highlights before displaying next question
+        const labels = optionsContainer.querySelectorAll('.option-label');
+        labels.forEach(label => {
+            label.style.backgroundColor = '';
+            label.style.borderColor = '';
+            label.style.fontWeight = '';
+        });
         displayQuestion();
     });
     restartBtn.addEventListener('click', restartQuiz); // Restarts the current quiz
