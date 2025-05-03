@@ -4,17 +4,21 @@ document.addEventListener('DOMContentLoaded', () => {
     const feedbackElement = document.getElementById('feedback');
     const submitBtn = document.getElementById('submit-btn');
     const nextBtn = document.getElementById('next-btn');
+    const finishBtn = document.getElementById('finish-btn');
     const progressTextElement = document.getElementById('progress-text');
     const resultsContainer = document.getElementById('results-container');
     const scoreTextElement = document.getElementById('score-text');
     const restartBtn = document.getElementById('restart-btn');
-    const quizContainer = document.querySelector('.quiz-container'); // Main container for questions
+    const resultsSummaryElement = document.getElementById('results-summary');
+    const navigationButtons = document.querySelector('.navigation-buttons');
+    const questionContainer = document.getElementById('question-container');
 
     let questions = [];
     let currentQuestionIndex = 0;
     let score = 0;
+    let backToResultsBtn = null;
 
-    // --- Fetch Questions --- Fetch questions from the JSON file
+    // --- Fetch Questions ---
     fetch('questions.json')
         .then(response => {
             if (!response.ok) {
@@ -42,6 +46,16 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        // Ensure results are hidden, question parts are visible
+        resultsContainer.style.display = 'none';
+        questionContainer.style.display = 'block';
+        optionsContainer.style.display = 'flex'; // Use flex as defined in CSS
+        feedbackElement.style.display = 'block';
+        progressTextElement.style.display = 'block';
+        navigationButtons.style.display = 'block'; // Show nav buttons div
+
+        removeBackToResultsButton(); // Remove back button if present
+
         const currentQuestion = questions[currentQuestionIndex];
         questionTextElement.innerText = `${currentQuestionIndex + 1}. ${currentQuestion.question}`;
         optionsContainer.innerHTML = ''; // Clear previous options
@@ -59,7 +73,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const input = document.createElement('input');
             input.id = optionId;
-            input.name = 'options';
+            input.name = `options-${currentQuestionIndex}`; // Unique name per question
             input.value = key;
 
             if (currentQuestion.type === 'multiple') {
@@ -69,7 +83,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const span = document.createElement('span');
-             // For True/False, use the key; otherwise, format as Key. Text
             span.textContent = (currentQuestion.type === 'truefalse') ? key : `${key}. ${option}`;
 
             label.appendChild(input);
@@ -81,12 +94,15 @@ document.addEventListener('DOMContentLoaded', () => {
         submitBtn.disabled = false;
         submitBtn.style.display = 'inline-block';
         nextBtn.style.display = 'none';
+        finishBtn.style.display = 'inline-block';
+        // Restart button is inside results container, so it's hidden now
     }
 
     // --- Submit Answer --- Handles answer submission and feedback
     function submitAnswer() {
         const currentQuestion = questions[currentQuestionIndex];
         let selectedAnswer;
+        let isCorrect = false; // Default to incorrect
 
         if (currentQuestion.type === 'multiple') {
             const checkedBoxes = optionsContainer.querySelectorAll('input[type="checkbox"]:checked');
@@ -96,18 +112,19 @@ document.addEventListener('DOMContentLoaded', () => {
             selectedAnswer = selectedRadio ? selectedRadio.value : null;
         }
 
-        if (selectedAnswer === null && currentQuestion.type !== 'multiple') {
-             feedbackElement.innerText = '请选择一个选项！';
-             feedbackElement.className = 'feedback incorrect'; // Use incorrect styling for prompt
-             return; // Don't proceed if nothing is selected for single/tf
-        } else if (currentQuestion.type === 'multiple' && selectedAnswer === '') {
-            feedbackElement.innerText = '请至少选择一个选项！';
-            feedbackElement.className = 'feedback incorrect'; // Use incorrect styling for prompt
-            return; // Don't proceed if nothing is selected for multiple
+        // Basic validation
+        if (selectedAnswer === null || (currentQuestion.type === 'multiple' && selectedAnswer === '')) {
+             feedbackElement.innerText = '请至少选择一个选项！';
+             feedbackElement.className = 'feedback incorrect';
+             return;
         }
 
         const correctAnswer = currentQuestion.answer;
-        const isCorrect = selectedAnswer === correctAnswer;
+        isCorrect = selectedAnswer === correctAnswer;
+
+        // Store results on the question object
+        currentQuestion.userAnswer = selectedAnswer;
+        currentQuestion.isCorrect = isCorrect;
 
         if (isCorrect) {
             score++;
@@ -116,8 +133,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             feedbackElement.innerText = `回答错误。正确答案是：${correctAnswer}`;
             feedbackElement.className = 'feedback incorrect';
-            // Optionally highlight the correct answer(s)
-            highlightCorrectAnswer(correctAnswer, currentQuestion.type);
+            highlightCorrectAnswer(correctAnswer, currentQuestion.type, selectedAnswer); // Pass user answer for highlighting
         }
 
         // Disable options after submission
@@ -129,17 +145,31 @@ document.addEventListener('DOMContentLoaded', () => {
         nextBtn.style.display = 'inline-block';
     }
 
-    // --- Highlight Correct Answer --- Visually indicates the correct option(s)
-     function highlightCorrectAnswer(correctAnswer, type) {
+    // --- Highlight Correct/Incorrect Answers --- Visually indicates answers
+     function highlightCorrectAnswer(correctAnswer, type, userAnswer) {
         const correctKeys = type === 'multiple' ? correctAnswer.split('') : [correctAnswer];
+        const userKeys = (type === 'multiple' && userAnswer) ? userAnswer.split('') : (userAnswer ? [userAnswer] : []);
+
+        // Highlight correct answers
         correctKeys.forEach(key => {
             const correctInput = document.getElementById(`option-${key}`);
             if (correctInput && correctInput.parentElement) {
-                correctInput.parentElement.style.backgroundColor = '#d4edda'; // Light green background
-                correctInput.parentElement.style.borderColor = '#28a745';
-                correctInput.parentElement.style.fontWeight = 'bold';
+                correctInput.parentElement.classList.add('correct-answer-highlight');
             }
         });
+
+        // If incorrect, also highlight the user's wrong choice(s)
+        if (userAnswer !== correctAnswer) {
+             userKeys.forEach(key => {
+                // Avoid double-highlighting if a user choice was part of the correct answer (in multiple choice)
+                if (!correctKeys.includes(key)) {
+                    const userInput = document.getElementById(`option-${key}`);
+                    if (userInput && userInput.parentElement) {
+                        userInput.parentElement.classList.add('user-answer-incorrect');
+                    }
+                }
+            });
+        }
     }
 
     // --- Update Progress --- Shows the current question number out of total
@@ -147,26 +177,175 @@ document.addEventListener('DOMContentLoaded', () => {
         progressTextElement.innerText = `进度: ${currentQuestionIndex + 1} / ${questions.length}`;
     }
 
-    // --- Show Results --- Displays the final score and restart option
+    // --- Show Results --- Displays the final score and review list
     function showResults() {
-        quizContainer.style.display = 'none'; // Hide questions area
-        resultsContainer.style.display = 'block';
-        const percentage = ((score / questions.length) * 100).toFixed(1);
-        scoreTextElement.innerText = `你的得分: ${score} / ${questions.length} (${percentage}%)`;
+        // Hide question parts, show results container
+        questionContainer.style.display = 'none';
+        optionsContainer.style.display = 'none';
+        feedbackElement.style.display = 'none';
+        progressTextElement.style.display = 'none';
+        navigationButtons.style.display = 'none'; // Hide the entire nav buttons div
+        resultsContainer.style.display = 'block'; // Show results
+
+        removeBackToResultsButton(); // Clean up back button if returning from details
+
+        let answeredCount = 0;
+        questions.forEach(q => {
+            if (q.hasOwnProperty('isCorrect')) {
+                answeredCount++;
+            }
+        });
+
+        const percentage = answeredCount > 0 ? ((score / answeredCount) * 100).toFixed(1) : 0;
+        scoreTextElement.innerText = `你的得分: ${score} / ${answeredCount} (答对 ${percentage}%) - 共 ${questions.length} 题`;
+
+        // Build the results summary list
+        resultsSummaryElement.innerHTML = ''; // Clear previous summary
+        const summaryTitle = document.createElement('h3');
+        summaryTitle.textContent = '题目回顾 (点击错误题号查看详情):';
+        resultsSummaryElement.appendChild(summaryTitle);
+
+        const resultsList = document.createElement('ul');
+        resultsList.className = 'results-list';
+
+        questions.forEach((question, index) => {
+            const listItem = document.createElement('li');
+            const button = document.createElement('button');
+            button.textContent = index + 1;
+            button.classList.add('result-item');
+
+            if (question.hasOwnProperty('isCorrect')) {
+                // Answered questions
+                button.classList.add(question.isCorrect ? 'correct' : 'incorrect');
+                button.setAttribute('aria-label', `题目 ${index + 1}: ${question.isCorrect ? '正确' : '错误'}`);
+                 if (!question.isCorrect) {
+                    button.addEventListener('click', () => displayQuestionDetails(index));
+                    button.title = '点击查看详情'; // Tooltip
+                }
+            } else {
+                // Unanswered questions
+                button.classList.add('unanswered'); // Add a new class for styling
+                button.setAttribute('aria-label', `题目 ${index + 1}: 未作答`);
+                button.disabled = true; // Cannot click unanswered items
+                 button.title = '未作答';
+            }
+
+            listItem.appendChild(button);
+            resultsList.appendChild(listItem);
+        });
+
+        resultsSummaryElement.appendChild(resultsList);
+    }
+
+    // --- Display Question Details --- Shows details for a specific question
+    function displayQuestionDetails(index) {
+        // Hide results, show question parts (except progress)
+        resultsContainer.style.display = 'none';
+        questionContainer.style.display = 'block';
+        optionsContainer.style.display = 'flex'; // Use flex as defined in CSS
+        feedbackElement.style.display = 'block';
+        progressTextElement.style.display = 'none'; // Keep progress hidden
+        navigationButtons.style.display = 'block'; // Show nav buttons div for the back button
+
+        const question = questions[index];
+        questionTextElement.innerText = `${index + 1}. ${question.question}`;
+        optionsContainer.innerHTML = ''; // Clear options area
+        feedbackElement.innerHTML = `你的答案: ${question.userAnswer || '未作答'} | 正确答案: ${question.answer}`;
+        feedbackElement.className = 'feedback incorrect';
+
+        const optionKeys = Object.keys(question.options);
+        optionKeys.forEach(key => {
+            const option = question.options[key];
+            const optionId = `option-${key}-detail`; // Use different ID for details view
+            const label = document.createElement('label');
+            label.htmlFor = optionId;
+            label.classList.add('option-label');
+
+            const input = document.createElement('input');
+            input.id = optionId;
+            input.name = `options-detail-${index}`; // Unique name
+            input.value = key;
+            input.disabled = true; // Always disable in detail view
+
+            if (question.type === 'multiple') {
+                input.type = 'checkbox';
+                 // Check user's choices
+                if (question.userAnswer && question.userAnswer.includes(key)) {
+                    input.checked = true;
+                }
+            } else {
+                input.type = 'radio';
+                 // Check user's choice
+                if (question.userAnswer === key) {
+                    input.checked = true;
+                }
+            }
+
+            const span = document.createElement('span');
+            span.textContent = (question.type === 'truefalse') ? key : `${key}. ${option}`;
+
+            label.appendChild(input);
+            label.appendChild(span);
+            optionsContainer.appendChild(label);
+
+            // Highlight user's incorrect choice and the correct answer
+            if (question.userAnswer === key && !question.isCorrect) {
+                 label.classList.add('user-answer-incorrect');
+            }
+             // Handle multiple choice correct parts
+            const correctKeys = question.type === 'multiple' ? question.answer.split('') : [question.answer];
+            if (correctKeys.includes(key)) {
+                 label.classList.add('correct-answer-highlight');
+            }
+        });
+
+        // Hide standard quiz buttons
+        submitBtn.style.display = 'none';
+        nextBtn.style.display = 'none';
+        finishBtn.style.display = 'none';
+
+        // Add "Back to Results" button
+        addBackToResultsButton();
+    }
+
+     // --- Add Back to Results Button ---
+    function addBackToResultsButton() {
+        removeBackToResultsButton(); // Ensure no duplicates
+        backToResultsBtn = document.createElement('button');
+        backToResultsBtn.textContent = '返回结果列表';
+        backToResultsBtn.id = 'back-to-results-btn';
+        backToResultsBtn.className = 'btn';
+        backToResultsBtn.addEventListener('click', () => {
+            removeBackToResultsButton(); // Clean up button
+            showResults(); // Go back to the summary view
+        });
+        navigationButtons.appendChild(backToResultsBtn);
+    }
+
+    // --- Remove Back to Results Button ---
+    function removeBackToResultsButton() {
+        if (backToResultsBtn && backToResultsBtn.parentNode) {
+            backToResultsBtn.parentNode.removeChild(backToResultsBtn);
+            backToResultsBtn = null;
+        }
     }
 
     // --- Restart Quiz --- Resets the quiz state and starts over
     function restartQuiz() {
+        questions.forEach(q => {
+            delete q.userAnswer;
+            delete q.isCorrect;
+        });
+
         currentQuestionIndex = 0;
         score = 0;
-        resultsContainer.style.display = 'none';
-        quizContainer.style.display = 'block'; // Show questions area again
+        // displayQuestion will handle showing/hiding elements
         displayQuestion();
     }
 
     // --- Show Error --- Displays an error message if loading fails
     function showError(message) {
-        quizContainer.innerHTML = `<p style="color: red; font-weight: bold;">${message}</p>`;
+        questionContainer.innerHTML = `<p style="color: red; font-weight: bold;">${message}</p>`;
     }
 
     // --- Event Listeners ---
@@ -176,4 +355,11 @@ document.addEventListener('DOMContentLoaded', () => {
         displayQuestion();
     });
     restartBtn.addEventListener('click', restartQuiz);
+    if (finishBtn) {
+        finishBtn.addEventListener('click', () => {
+            showResults();
+        });
+    } else {
+        console.error('Could not find Finish button to attach listener.');
+    }
 });
